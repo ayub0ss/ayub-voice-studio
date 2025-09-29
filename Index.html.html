@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ayub Voice Studio</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'gemini-dark': '#0f172a',
+                        'gemini-card': '#1e293b',
+                        'gemini-accent': '#a855f7',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom scrollbar for a clean look */
+        .voice-select::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .voice-select::-webkit-scrollbar-thumb {
+            background-color: #475569;
+            border-radius: 10px;
+        }
+        .voice-select::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        /* Style the file input to look better with Tailwind */
+        input[type="file"]::file-selector-button {
+            @apply px-4 py-2 mr-4 border-0 rounded-lg text-sm font-semibold bg-purple-600 text-white hover:bg-purple-700;
+        }
+    </style>
+</head>
+<body class="bg-gemini-dark text-white font-sans min-h-screen p-4 flex items-start justify-center">
+
+    <div id="app" class="w-full max-w-2xl mt-8">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-extrabold text-gemini-accent tracking-tight">Ayub Voice Studio</h1>
+            <p class="text-lg text-gray-400 mt-2">Text-to-Speech Synthesis with 30+ Speaker Voices (Multilingual Support)</p>
+        </header>
+
+        <div class="bg-gemini-card p-6 rounded-xl shadow-2xl space-y-6">
+
+            <!-- Voice Input Area (New Feature) -->
+            <div class="border-b border-gray-700 pb-6">
+                <label for="audio-file-input" class="block text-sm font-medium text-gray-300 mb-2">Upload Your Voice (Voice-to-Text-to-Voice)</label>
+                <input type="file" id="audio-file-input" accept="audio/*"
+                       class="w-full p-2 bg-gray-700 border-none rounded-lg text-white placeholder-gray-400 transition duration-150 ease-in-out">
+                <p class="text-xs text-gray-500 mt-2">This converts your uploaded audio file to **text**, and then synthesizes it using the selected AI voice.</p>
+            </div>
+
+            <!-- Text Input Area (Conditional) -->
+            <div>
+                <label for="text-input" class="block text-sm font-medium text-gray-300 mb-2">Text to Speak (or upload a file above)</label>
+                <textarea id="text-input"
+                          rows="4"
+                          class="w-full p-4 bg-gray-700 border-none rounded-lg focus:ring-2 focus:ring-gemini-accent placeholder-gray-400 text-white transition duration-150 ease-in-out resize-none"
+                          placeholder="Enter your text here in any supported language (e.g., English, Hindi, Spanish).">
+Hello, I am changing your voice to a different AI voice.
+                </textarea>
+                <p id="char-count" class="text-xs text-gray-500 text-right mt-1">Current Characters: 0</p>
+            </div>
+
+            <!-- Voice Selector -->
+            <div>
+                <label for="voice-select" class="block text-sm font-medium text-gray-300 mb-2">Select AI Speaker Voice</label>
+                <select id="voice-select"
+                        class="voice-select w-full p-3 bg-gray-700 border-none rounded-lg focus:ring-2 focus:ring-gemini-accent text-white appearance-none cursor-pointer transition duration-150 ease-in-out">
+                    <!-- Options populated by JavaScript -->
+                </select>
+            </div>
+
+            <!-- Action Button -->
+            <button id="generate-button"
+                    class="w-full flex items-center justify-center py-3 px-4 border border-transparent rounded-lg text-lg font-bold text-white bg-gemini-accent hover:bg-purple-700 focus:outline-none focus:ring-4 focus:ring-purple-500 focus:ring-opacity-50 transition duration-150 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed"
+                    onclick="generateSpeech()">
+                <svg id="button-icon" class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                Generate Voice
+            </button>
+
+            <!-- Audio Output & Status -->
+            <div id="output-area" class="pt-4 border-t border-gray-700 hidden">
+                <h3 class="text-md font-semibold text-gray-300 mb-3">Generated Audio</h3>
+                <div id="transcribed-text-display" class="bg-gray-800 p-3 mb-4 rounded-lg text-sm text-gray-300 hidden">
+                    <strong class="text-gemini-accent">Transcribed Text:</strong> <span id="transcribed-text-span"></span>
+                </div>
+                <div class="space-y-4">
+                    <div id="audio-player-container" class="w-full bg-gray-700 p-3 rounded-lg flex items-center justify-center">
+                        <audio id="audio-output" controls class="w-full" style="filter: invert(1) hue-rotate(180deg);"></audio>
+                    </div>
+                    <!-- Download Button added here -->
+                    <a id="download-link"
+                       class="w-full flex items-center justify-center py-2 px-4 border border-transparent rounded-lg text-base font-semibold text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-4 focus:ring-green-500 focus:ring-opacity-50 transition duration-150 ease-in-out cursor-pointer"
+                       download="gemini_voice_output.wav"
+                       href="#">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        Download Audio
+                    </a>
+                </div>
+                <p id="status-message" class="mt-4 text-center text-sm text-red-400"></p>
+            </div>
+
+            <!-- Loading Spinner -->
+            <div id="loading-spinner" class="hidden flex justify-center items-center py-6">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-gemini-accent"></div>
+                <span id="loading-text" class="ml-4 text-gray-400">Synthesizing audio...</span>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // --- Configuration and Constants ---
+
+        // The API key is required for the Gemini API call.
+        // !!! IMPORTANT: FOR LOCAL USE, YOU MUST REPLACE THE EMPTY STRING BELOW WITH YOUR ACTUAL GEMINI API KEY. !!!
+        // If this is not done, the app will fail to communicate with the Google services.
+        const apiKey = "AIzaSyC2xuOHd_q3qxhN1w7Y9UHmuv9FNT1xrQY"; // <-- Your key is now inserted here!
+        const TTS_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+        const STT_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`; // For transcription
+        const MAX_RETRIES = 3;
+        const VOICE_OPTIONS = [
+            // Renamed for clarity, keeping the original voice values.
+            { name: "Zephyr (Bright)", value: "Zephyr" },
+            { name: "Puck (Upbeat)", value: "Puck" },
+            { name: "Charon (Informative)", value: "Charon" },
+            { name: "Kore (Firm)", value: "Kore" },
+            { name: "Fenrir (Excitable)", value: "Fenrir" },
+            { name: "Leda (Youthful)", value: "Leda" },
+            { name: "Orus (Firm)", value: "Orus" },
+            { name: "Aoede (Breezy)", value: "Aoede" },
+            { name: "Callirrhoe (Easy-going)", value: "Callirrhoe" },
+            { name: "Autonoe (Bright)", value: "Autonoe" },
+            { name: "Enceladus (Breathy)", value: "Enceladus" },
+            { name: "Iapetus (Clear)", value: "Iapetus" },
+            { name: "Umbriel (Easy-going)", value: "Umbriel" },
+            { name: "Algieba (Smooth)", value: "Algieba" },
+            { name: "Despina (Smooth)", value: "Despina" },
+            { name: "Erinome (Clear)", value: "Erinome" },
+            { name: "Algenib (Gravelly)", value: "Algenib" },
+            { name: "Rasalgethi (Informative)", value: "Rasalgethi" },
+            { name: "Laomedeia (Upbeat)", value: "Laomedeia" },
+            { name: "Achernar (Soft)", value: "Achernar" },
+            { name: "Alnilam (Firm)", value: "Alnilam" },
+            { name: "Schedar (Even)", value: "Schedar" },
+            { name: "Gacrux (Mature)", value: "Gacrux" },
+            { name: "Pulcherrima (Forward)", value: "Pulcherrima" },
+            { name: "Achird (Friendly)", value: "Achird" },
+            { name: "Zubenelgenubi (Casual)", value: "Zubenelgenubi" },
+            { name: "Vindemiatrix (Gentle)", value: "Vindemiatrix" },
+            { name: "Sadachbia (Lively)", value: "Sadachbia" },
+            { name: "Sadaltager (Knowledgeable)", value: "Sadaltager" },
+            { name: "Sulafat (Warm)", value: "Sulafat" },
+            { name: "Arcturus (Clear)", value: "Arcturus" },
+            { name: "Vega (Energetic)", value: "Vega" },
+        ]; // Total: 32 voices
+
+        // --- Global State ---
+        let uploadedAudioBase64 = null;
+        let uploadedAudioMimeType = null;
+
+
+        // --- DOM Elements ---
+        const textInput = document.getElementById('text-input');
+        const audioFileInput = document.getElementById('audio-file-input');
+        const voiceSelect = document.getElementById('voice-select');
+        const generateButton = document.getElementById('generate-button');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const loadingText = document.getElementById('loading-text');
+        const audioOutput = document.getElementById('audio-output');
+        const outputArea = document.getElementById('output-area');
+        const statusMessage = document.getElementById('status-message');
+        const charCount = document.getElementById('char-count');
+        const downloadLink = document.getElementById('download-link');
+        const transcribedTextDisplay = document.getElementById('transcribed-text-display');
+        const transcribedTextSpan = document.getElementById('transcribed-text-span');
+
+        // --- Utility Functions for Audio Conversion ---
+
+        /**
+         * Converts a Base64 string to an ArrayBuffer.
+         * @param {string} base64 The base64 encoded string.
+         * @returns {ArrayBuffer} The array buffer.
+         */
+        function base64ToArrayBuffer(base64) {
+            const binary_string = window.atob(base64);
+            const len = binary_string.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binary_string.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+
+        /**
+         * Converts raw 16-bit PCM audio data (ArrayBuffer) into a WAV Blob.
+         * This uses bulk byte copying for maximum reliability.
+         * @param {ArrayBuffer} pcmDataBuffer The raw 16-bit PCM audio data buffer.
+         * @param {number} sampleRate Audio sample rate (e.g., 24000).
+         * @returns {Blob} The WAV audio blob.
+         */
+        function pcmToWav(pcmDataBuffer, sampleRate) {
+            const pcm8 = new Uint8Array(pcmDataBuffer); // View raw data as bytes
+            const numChannels = 1;
+            const bytesPerSample = 2; // 16-bit PCM
+            const dataLength = pcm8.length; // Length of PCM data in bytes
+
+            // 44 bytes for the standard WAV header
+            const buffer = new ArrayBuffer(44 + dataLength);
+            const view = new DataView(buffer);
+            const wavBytes = new Uint8Array(buffer); // Byte array for bulk copying data
+
+            let offset = 0;
+            // Write string helper
+            const writeString = (str) => {
+                for (let i = 0; i < str.length; i++) {
+                    view.setUint8(offset + i, str.charCodeAt(i));
+                }
+                offset += str.length;
+            };
+
+            // 1. RIFF chunk descriptor
+            writeString('RIFF');
+            view.setUint32(offset, 36 + dataLength, true); offset += 4; // Chunk size
+            writeString('WAVE');
+
+            // 2. fmt sub-chunk
+            writeString('fmt ');
+            view.setUint32(offset, 16, true); offset += 4; // Sub-chunk size (16 for PCM)
+            view.setUint16(offset, 1, true); offset += 2; // Audio format (1=PCM)
+            view.setUint16(offset, numChannels, true); offset += 2; // Channels
+            view.setUint32(offset, sampleRate, true); offset += 4; // Sample rate
+            view.setUint32(offset, sampleRate * numChannels * bytesPerSample, true); offset += 4; // Byte rate
+            view.setUint16(offset, numChannels * bytesPerSample, true); offset += 2; // Block align
+            view.setUint16(offset, bytesPerSample * 8, true); offset += 2; // Bits per sample (16)
+
+            // 3. data sub-chunk
+            writeString('data');
+            view.setUint32(offset, dataLength, true); offset += 4; // Sub-chunk size
+
+            // Write the PCM data using bulk copy:
+            wavBytes.set(pcm8, offset); // Copy raw bytes starting at the current offset
+
+            return new Blob([buffer], { type: 'audio/wav' });
+        }
+        
+        /**
+         * Converts a File object to a Base64 string and stores its MIME type.
+         * @param {File} file The audio file to convert.
+         * @returns {Promise<void>} Resolves when the file is processed.
+         */
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    // Extract only the base64 data part (remove the data:mime/type;base64,)
+                    const base64String = reader.result.split(',')[1];
+                    uploadedAudioBase64 = base64String;
+                    uploadedAudioMimeType = file.type;
+                    resolve();
+                };
+                reader.onerror = error => reject(error);
+                reader.readAsDataURL(file);
+            });
+        }
+
+
+        // --- UI Initialization and State Management ---
+
+        function initUI() {
+            // Populate voice selector
+            VOICE_OPTIONS.forEach(voice => {
+                const option = document.createElement('option');
+                option.value = voice.value;
+                option.textContent = voice.name;
+                voiceSelect.appendChild(option);
+            });
+
+            // Event listeners
+            textInput.addEventListener('input', updateCharCount);
+            audioFileInput.addEventListener('change', handleFileChange);
+            updateCharCount(); // Initialize count
+        }
+        
+        function handleFileChange(event) {
+            const file = event.target.files[0];
+            if (file) {
+                // When a file is selected, disable the text input
+                textInput.disabled = true;
+                textInput.placeholder = "Audio file uploaded, text input is disabled.";
+                textInput.value = ""; // Clear text input if a file is uploaded
+                updateCharCount(true); // Update UI to reflect file is in use
+                
+                // Reset uploaded audio state
+                uploadedAudioBase64 = null;
+                uploadedAudioMimeType = null;
+                
+                // Show a brief message that file is ready
+                setAppState(false, `File ready: ${file.name}. Click 'Generate Voice' to transcribe and synthesize.`, false);
+            } else {
+                // If the file selection is cancelled, re-enable the text input
+                textInput.disabled = false;
+                textInput.placeholder = "Enter your text here...";
+                uploadedAudioBase64 = null;
+                uploadedAudioMimeType = null;
+                setAppState(false, '', false);
+            }
+        }
+
+        function updateCharCount(isFileInput = false) {
+            if (isFileInput) {
+                charCount.textContent = `File in use. Text input will be ignored.`;
+                charCount.classList.remove('text-yellow-400');
+                return;
+            }
+            const currentLength = textInput.value.length;
+            charCount.textContent = `Current Characters: ${currentLength}`;
+            
+            if (currentLength > 2000) {
+                charCount.classList.add('text-yellow-400');
+            } else {
+                charCount.classList.remove('text-yellow-400');
+            }
+        }
+
+        function setAppState(isGenerating, message = '', isError = false) {
+            generateButton.disabled = isGenerating;
+            voiceSelect.disabled = isGenerating;
+            
+            const isFileSelected = audioFileInput.files.length > 0;
+            // Text input is disabled if we are generating OR if a file is selected
+            textInput.disabled = isGenerating || isFileSelected;
+            audioFileInput.disabled = isGenerating;
+
+            loadingSpinner.classList.toggle('hidden', !isGenerating);
+            
+            // Only hide output area if we are starting a new generation or there's an error
+            if (isGenerating || isError) {
+                outputArea.classList.add('hidden'); 
+                transcribedTextDisplay.classList.add('hidden');
+                transcribedTextSpan.textContent = '';
+            } else if (!isGenerating && !isError) {
+                // If generation succeeded, show the output area (called in synthesize function)
+            }
+
+            if (isGenerating) {
+                generateButton.innerHTML = `<div class="animate-spin h-5 w-5 mr-3 border-2 border-white border-t-transparent rounded-full"></div> <span id="button-status">Synthesizing...</span>`;
+            } else {
+                // Updated to be purely English
+                generateButton.innerHTML = `<svg id="button-icon" class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Generate Voice`;
+            }
+
+            if (message) {
+                statusMessage.textContent = message;
+                statusMessage.classList.toggle('text-red-400', isError);
+                statusMessage.classList.toggle('text-green-400', !isError);
+            } else {
+                statusMessage.textContent = '';
+            }
+            
+            loadingText.textContent = isGenerating ? message : 'Synthesizing audio...';
+        }
+        
+        /**
+         * Sets the text to display inside the button and loading spinner.
+         * @param {string} text The status text.
+         */
+        function setStatusText(text) {
+            const buttonStatus = document.getElementById('button-status');
+            if (buttonStatus) {
+                buttonStatus.textContent = text;
+            }
+            loadingText.textContent = text;
+        }
+
+        // --- API & Main Logic ---
+
+        /**
+         * Utility function to handle API calls with exponential backoff for retries.
+         */
+        async function fetchWithRetry(url, options, retries = MAX_RETRIES) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (response.ok) {
+                        return response;
+                    }
+                    
+                    // Throw error to trigger catch and retry logic if status is not 200-299
+                    const errorBody = await response.json();
+                    throw new Error(`API Request failed with status ${response.status}: ${errorBody.error?.message || 'Unknown API error'}`);
+                    
+                } catch (error) {
+                    if (i < retries - 1) {
+                        const delay = Math.pow(2, i) * 1000; // 1s, 2s, 4s delay
+                        // Do not log the retry attempt, just wait
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    } else {
+                        throw error; // Throw final error
+                    }
+                }
+            }
+        }
+
+        /**
+         * Step 1: Transcribes the uploaded audio file using Gemini-Flash.
+         * @returns {Promise<string>} The transcribed text.
+         */
+        async function transcribeAudio(base64Data, mimeType) {
+            setStatusText('Transcribing audio file (Speech-to-Text)...');
+            
+            const prompt = "Transcribe the audio accurately. Provide only the spoken text.";
+            
+            const payload = {
+                contents: [{
+                    role: "user",
+                    parts: [
+                        { text: prompt },
+                        {
+                            inlineData: {
+                                mimeType: mimeType,
+                                data: base64Data
+                            }
+                        }
+                    ]
+                }],
+            };
+
+            const response = await fetchWithRetry(STT_API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await response.json();
+            const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+            if (!text || text.trim() === "") {
+                 throw new Error("Could not transcribe audio. Result was empty or invalid.");
+            }
+            return text.trim();
+        }
+
+
+        /**
+         * Step 2: Generates the speech from text using Gemini TTS.
+         * @param {string} text The text to synthesize.
+         * @param {string} voice The selected voice name.
+         */
+        async function synthesizeSpeech(text, selectedVoice) {
+            setStatusText('Synthesizing new AI voice (Text-to-Speech)...');
+
+            const payload = {
+                contents: [{
+                    parts: [{ text: text }]
+                }],
+                generationConfig: {
+                    responseModalities: ["AUDIO"],
+                    speechConfig: {
+                        voiceConfig: {
+                            prebuiltVoiceConfig: { voiceName: selectedVoice }
+                        }
+                    }
+                },
+                model: "gemini-2.5-flash-preview-tts"
+            };
+
+            const response = await fetchWithRetry(TTS_API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await response.json();
+            const part = result?.candidates?.[0]?.content?.parts?.[0];
+            const audioData = part?.inlineData?.data;
+            const mimeType = part?.inlineData?.mimeType;
+
+            if (audioData && mimeType && mimeType.startsWith("audio/L16")) {
+                const rateMatch = mimeType.match(/rate=(\d+)/);
+                if (!rateMatch || !rateMatch[1]) {
+                    throw new Error("Could not determine sample rate from API response in mimeType.");
+                }
+                const sampleRate = parseInt(rateMatch[1], 10);
+
+                // 1. Convert base64 to ArrayBuffer
+                const pcmDataBuffer = base64ToArrayBuffer(audioData);
+                
+                // 2. Convert PCM to WAV Blob using the robust conversion logic
+                const wavBlob = pcmToWav(pcmDataBuffer, sampleRate);
+                
+                // 3. Create playable URL and set it
+                const audioUrl = URL.createObjectURL(wavBlob);
+
+                // Update UI for success
+                audioOutput.src = audioUrl;
+                const filename = `ai_voice_conversion_${Date.now()}.wav`;
+                downloadLink.href = audioUrl;
+                downloadLink.download = filename;
+
+                return true; // Success
+            } else {
+                throw new Error("Invalid or missing audio data in the synthesis response.");
+            }
+        }
+
+
+        /**
+         * Main orchestration function for TTS or V2T2V.
+         */
+        async function generateSpeech() {
+            // Check if API key is provided for local execution
+            if (!apiKey) {
+                setAppState(false, "ERROR: API Key is missing. Please replace the placeholder in the script with your actual key to run locally.", true);
+                return;
+            }
+
+            setAppState(true, 'Initiating process...');
+            audioOutput.removeAttribute('src'); // Clear previous audio
+            downloadLink.href = '#'; // Clear previous download link
+            
+            const selectedVoice = voiceSelect.value;
+            let finalSynthesisText = '';
+
+            try {
+                // Determine mode: Voice-to-Text-to-Voice (V2T2V) or Text-to-Speech (TTS)
+                if (audioFileInput.files.length > 0) {
+                    const file = audioFileInput.files[0];
+
+                    if (file.size > 8 * 1024 * 1024) { // 8MB limit for multi-modal API
+                         throw new Error("File size must be less than 8MB for transcription.");
+                    }
+
+                    // 1. Convert file to Base64 (needed for API payload)
+                    await fileToBase64(file);
+                    
+                    // 2. Transcribe the audio
+                    const transcribedText = await transcribeAudio(uploadedAudioBase64, uploadedAudioMimeType);
+                    
+                    finalSynthesisText = transcribedText;
+                    
+                    // Display the transcribed text to the user
+                    transcribedTextSpan.textContent = finalSynthesisText;
+                    transcribedTextDisplay.classList.remove('hidden');
+
+                } else {
+                    // Standard Text-to-Speech (TTS) mode
+                    const text = textInput.value.trim();
+                    if (!text) {
+                        throw new Error("Please enter text or upload an audio file.");
+                    }
+                    finalSynthesisText = text;
+                    transcribedTextDisplay.classList.add('hidden'); // Hide transcription box
+                }
+
+                // 3. Synthesize the final audio (common step for both modes)
+                await synthesizeSpeech(finalSynthesisText, selectedVoice);
+
+                // Final success state
+                setAppState(false, "Speech generated successfully! You can now listen or download it.", false);
+                outputArea.classList.remove('hidden');
+
+
+            } catch (error) {
+                console.error("Generation failed:", error);
+                // Check specifically for API Key errors which are often 403/400 errors
+                if (error.message.includes('403') || error.message.includes('400')) {
+                    setAppState(false, `Generation Failed (Possible API Key/Permissions Error): ${error.message}`, true);
+                } else {
+                    setAppState(false, `Generation Failed: ${error.message}`, true);
+                }
+            }
+        }
+
+        // Initialize the UI once the window is loaded
+        window.onload = initUI;
+    </script>
+</body>
+</html>
